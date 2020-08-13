@@ -116,6 +116,7 @@ while len(visited) < len(traversal_graph): # loop until we've visited every room
         count = count_unvisited(path[-1], visited)
         if count < lowest:
             next_path = path
+            lowest = count
 
     # Move along that path (first room in next_path is the room we're already in)
     for room in next_path[1:]:
