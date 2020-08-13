@@ -4,6 +4,7 @@ from world import World
 
 import random
 from ast import literal_eval
+from collections import deque
 
 # Load world
 world = World()
@@ -25,40 +26,72 @@ world.print_rooms()
 
 player = Player(world.starting_room)
 
-# Fill this out with directions to walk
-# traversal_path = ['n', 'n']
-traversal_path = []
-
-# modifies traversal_path directly
-def traverse_map(current_room, visited, back_direction=None):
-    """ recursive traversal, adds steps to traversal_path as we take them """
-    # Add current_room to visited
-    visited.add(current_room.id)
+def build_graph(current_room, graph):
+    """ recursive depth first traversal, builds the traversal_graph """
+    # Add current_room to the graph
+    graph[current_room.id] = {}
 
     # Go into each exit we haven't already visited
     for direction in current_room.get_exits():
+        # get the room in that direction
         next_room = current_room.get_room_in_direction(direction)
-        if next_room.id not in visited:
-            # get reverse direction
-            if direction == 'n':
-                back = 's'
-            elif direction == 's':
-                back = 'n'
-            elif direction == 'e':
-                back = 'w'
-            else:  # direction == 'w'
-                back = 'e'
 
-            # traverse into this room
-            traversal_path.append(direction)
-            traverse_map(next_room, visited, back)
+        # add it to current_room's graph entry
+        graph[current_room.id][next_room.id] = direction
+
+        # if we haven't visited next_room yet, do so
+        if next_room.id not in graph:
+            build_graph(next_room, graph)
         
-    # traverse back out of this room, if we aren't done yet
-    if (back_direction is not None):
-        traversal_path.append(back_direction)
-    return
+    return graph
 
-traverse_map(world.starting_room, set())
+# traveral_graph is structure {0: {4: 'n', 8: 's', 3: 'w', 1: 'e'}, ...}
+# keys are the room id's, values are a dict of connected rooms and the directions they are in
+traversal_graph = build_graph(player.current_room, {})
+
+print(traversal_graph)
+
+def find_closest_unvisited(start_room, visited):
+    """
+    performs a breath-first search
+    returns the path to the closest unvisited room as a list of room id's
+    """
+    # Set up the queue and a visited set for this search
+    v = set()
+    q = deque()
+    q.append([start_room])  # queue contains path lists
+
+    while len(q) > 0:
+        path = q.popleft()
+        v.add(path[-1]) # mark this room as visited for the bfs
+        
+        # if this room isn't in visited, return the path to it
+        if path[-1] not in visited:
+            return path
+
+        # else, add neighbors to the queue
+        for room in traversal_graph[path[-1]].keys():
+            if room not in v:
+                new_path = path.copy()
+                new_path.append(room)
+                q.append(new_path)
+
+# Fill traversal_path
+traversal_path = []
+visited = set()
+visited.add(player.current_room.id)
+while len(visited) < len(traversal_graph): # loop until we've visited every room
+    # Find the path to the closest unvisited room
+    next_path = find_closest_unvisited(player.current_room.id, visited)
+
+    # Move along that path (first room in next_path is the room we're already in)
+    for room in next_path[1:]:
+        next_move = traversal_graph[player.current_room.id][room]
+        traversal_path.append(next_move)
+        player.travel(next_move)
+
+    # Mark this room as visited
+    visited.add(player.current_room.id)
 
 
 # TRAVERSAL TEST - DO NOT MODIFY
